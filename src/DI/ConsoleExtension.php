@@ -34,8 +34,7 @@ class ConsoleExtension extends CompilerExtension
 
 		$builder->addDefinition( $command = $this->prefix('command.factory'))
 			->setType( Console\CommandFactory::class )
-			->setArguments([[]])
-			->setInject();
+			->setArguments(['@container', [] ]);
 
 		$param = $this->getApplicationParams();
 
@@ -124,7 +123,7 @@ class ConsoleExtension extends CompilerExtension
 
 		if( $this->services ) {
 			$factory = $builder->getDefinition( $this->prefix('command.factory'));
-			$factory->setArguments([ $this->services ]);
+			$factory->setArguments(['@container', $this->services ]);
 		}
 
 		if( $this->commands ) {

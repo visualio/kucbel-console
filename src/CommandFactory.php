@@ -14,9 +14,8 @@ class CommandFactory implements CommandLoaderInterface
 
 	/**
 	 * @var Container
-	 * @inject
 	 */
-	public $container;
+	private $container;
 
 	/**
 	 * @var array
@@ -26,10 +25,12 @@ class CommandFactory implements CommandLoaderInterface
 	/**
 	 * CommandFactory constructor.
 	 *
+	 * @param Container $container
 	 * @param array $services
 	 */
-	function __construct( array $services )
+	function __construct( Container $container, array $services )
 	{
+		$this->container = $container;
 		$this->services = $services;
 	}
 
