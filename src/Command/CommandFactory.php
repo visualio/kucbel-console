@@ -1,6 +1,6 @@
 <?php
 
-namespace Kucbel\Console;
+namespace Kucbel\Console\Command;
 
 use Nette\DI\Container;
 use Nette\SmartObject;

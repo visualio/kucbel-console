@@ -1,6 +1,6 @@
 <?php
 
-namespace Kucbel\Console;
+namespace Kucbel\Console\Http;
 
 use Nette\Http\IRequest;
 use Nette\Http\Request;

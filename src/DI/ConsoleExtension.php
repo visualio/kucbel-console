@@ -33,7 +33,7 @@ class ConsoleExtension extends CompilerExtension
 		$builder = $this->getContainerBuilder();
 
 		$builder->addDefinition( $command = $this->prefix('command.factory'))
-			->setType( Console\CommandFactory::class )
+			->setType( Console\Command\CommandFactory::class )
 			->setArguments(['@container', [] ]);
 
 		$param = $this->getApplicationParams();
@@ -48,8 +48,8 @@ class ConsoleExtension extends CompilerExtension
 		$param = $this->getHttpParams();
 
 		if( $param['active'] ) {
-			$builder->addDefinition( $request = $this->prefix('request.factory'))
-				->setType( Console\RequestFactory::class )
+			$builder->addDefinition( $request = $this->prefix('http.factory'))
+				->setType( Console\Http\RequestFactory::class )
 				->setArguments([ $param['host'], $param['method'], $param['remote'] ]);
 
 			$builder->getDefinition('http.request')
