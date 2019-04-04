@@ -2,7 +2,11 @@
 
 namespace Kucbel\Console\Command;
 
+use Nette\Caching\Cache;
+use Nette\Caching\IStorage;
 use Nette\DI\Container;
+use Nette\InvalidArgumentException;
+use Nette\InvalidStateException;
 use Nette\SmartObject;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\CommandLoader\CommandLoaderInterface;
@@ -18,20 +22,51 @@ class CommandFactory implements CommandLoaderInterface
 	private $container;
 
 	/**
-	 * @var array
+	 * @var Cache
 	 */
-	private $services;
+	private $cache;
+
+	/**
+	 * @var string[] | null
+	 */
+	private $waits;
+
+	/**
+	 * @var string[] | null
+	 */
+	private $names;
+
+	/**
+	 * @var bool
+	 */
+	private $build = false;
 
 	/**
 	 * CommandFactory constructor.
 	 *
 	 * @param Container $container
-	 * @param array $services
+	 * @param IStorage $storage
 	 */
-	function __construct( Container $container, array $services )
+	function __construct( Container $container, IStorage $storage )
 	{
 		$this->container = $container;
-		$this->services = $services;
+		$this->cache = new Cache( $storage, 'CommandFactory');
+	}
+
+	/**
+	 * @param string ...$names
+	 */
+	function add( string ...$names )
+	{
+		if( !$names ) {
+			throw new InvalidArgumentException;
+		}
+
+		foreach( $names as $name ) {
+			$this->waits[] = $name;
+		}
+
+		$this->build = true;
 	}
 
 	/**
@@ -41,14 +76,19 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function get( $name ) : Command
 	{
-		$service = $this->services[ $name ] ?? null;
+		$this->build();
 
-		if( $service === null ) {
+		$service = $this->names[ $name ] ?? null;
+
+		if( !$service ) {
 			throw new CommandNotFoundException("Command '$name' does not exist.");
 		}
 
-		/** @var Command $command */
 		$command = $this->container->getService( $service );
+
+		if( !$command instanceof Command ) {
+			throw new CommandNotFoundException("Command '$name' does not exist.");
+		}
 
 		return $command;
 	}
@@ -59,7 +99,9 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function has( $name ) : bool
 	{
-		return isset( $this->services[ $name ] );
+		$this->build();
+
+		return isset( $this->names[ $name ] );
 	}
 
 	/**
@@ -67,6 +109,54 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function getNames() : array
 	{
-		return array_keys( $this->services );
+		$this->build();
+
+		return array_keys( $this->names );
+	}
+
+	/**
+	 * @internal
+	 */
+	function build()
+	{
+		if( $this->build ) {
+			$this->build = false;
+
+			if( $this->waits ) {
+				$hash = md5( json_encode( $this->waits ));
+
+				$this->names = $this->cache->load( $hash, [ $this, 'index']);
+			}
+		}
+	}
+
+	/**
+	 * @return array
+	 * @internal
+	 */
+	function index() : array
+	{
+		$codes = [];
+
+		if( $this->waits ) {
+			foreach( $this->waits as $name ) {
+				$command = $this->container->getService( $name );
+
+				if( !$command instanceof Command ) {
+					throw new InvalidStateException("Service '$name' must be a command.");
+				}
+
+				$code = $command->getName();
+				$dupe = $codes[ $code ] ?? null;
+
+				if( $dupe ) {
+					throw new InvalidStateException("Duplicate command '$code' found in services '$dupe' and '$name'.");
+				}
+
+				$codes[ $code ] = $name;
+			}
+		}
+
+		return $codes;
 	}
 }

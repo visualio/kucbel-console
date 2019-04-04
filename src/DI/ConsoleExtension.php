@@ -3,28 +3,18 @@
 namespace Kucbel\Console\DI;
 
 use Kucbel\Console;
+use Kucbel\Scalar\Input\ContainerInput;
 use Kucbel\Scalar\Input\ExtensionInput;
+use Kucbel\Scalar\Validator\ValidatorException;
+use Nette\Caching\IStorage;
+use Nette\Caching\Storages\MemoryStorage;
 use Nette\DI\CompilerExtension;
-use Nette\InvalidStateException;
 use Nette\Loaders\RobotLoader;
 use Nette\Utils\Strings;
-use ReflectionClass;
-use ReflectionException;
 use Symfony\Component\Console as Symfony;
-use Throwable;
 
 class ConsoleExtension extends CompilerExtension
 {
-	/**
-	 * @var array | null
-	 */
-	private $commands;
-
-	/**
-	 * @var array | null
-	 */
-	private $services;
-
 	/**
 	 * Config
 	 */
@@ -32,16 +22,26 @@ class ConsoleExtension extends CompilerExtension
 	{
 		$builder = $this->getContainerBuilder();
 
-		$builder->addDefinition( $command = $this->prefix('command.factory'))
+		$param = $this->getExtensionParams();
+
+		if( $param['cache'] ) {
+			$storage = IStorage::class;
+		} else {
+			$builder->addDefinition( $storage = $this->prefix('storage'))
+				->setType( MemoryStorage::class )
+				->setAutowired( false );
+		}
+
+		$builder->addDefinition( $loader = $this->prefix('command.factory'))
 			->setType( Console\Command\CommandFactory::class )
-			->setArguments(['@container', [] ]);
+			->setArguments(['@container', "@$storage"]);
 
 		$param = $this->getApplicationParams();
 
 		$builder->addDefinition( $this->prefix('application'))
 			->setType( Symfony\Application::class )
 			->setArguments([ $param['name'], $param['ver'] ])
-			->addSetup('setCommandLoader', ["@$command"])
+			->addSetup('setCommandLoader', ["@$loader"])
 			->addSetup('setCatchExceptions', [ $param['catch'] ])
 			->addSetup('setAutoExit', [ $param['exit'] ]);
 
@@ -63,10 +63,11 @@ class ConsoleExtension extends CompilerExtension
 	function beforeCompile()
 	{
 		$builder = $this->getContainerBuilder();
-		$param = $this->getCommandParams();
 
-		$number = 1;
-		$commands = $services = [];
+		$commands =
+		$services = [];
+
+		$param = $this->getCommandParams();
 
 		if( $param['scan'] ) {
 			$robot = new RobotLoader;
@@ -74,8 +75,8 @@ class ConsoleExtension extends CompilerExtension
 			$robot->rebuild();
 
 			foreach( $robot->getIndexedClasses() as $type => $path ) {
-				if( $this->isCommand( $type )) {
-					$commands[ $type ] = true;
+				if( is_subclass_of( $type, Symfony\Command\Command::class, true )) {
+					$commands[ $type ] = false;
 				}
 			}
 		}
@@ -85,96 +86,59 @@ class ConsoleExtension extends CompilerExtension
 		foreach( $definitions as $name => $definition ) {
 			$type = $definition->getType();
 
+			$services[] = $name;
+
 			if( $type ) {
-				$services[ $name ] = $type;
-				$commands[ $type ] = false;
-			} else {
-				$this->commands[] = $name;
+				$commands[ $type ] = true;
 			}
 		}
 
-		foreach( $commands as $type => $register ) {
-			if( !$register ) {
+		$counter = 0;
+		$spacer = strlen( count( $commands ));
+
+		foreach( $commands as $type => $exist ) {
+			if( $exist ) {
 				continue;
 			}
 
-			$index = Strings::padLeft( $number++, 2, '0');
+			$suffix = Strings::padLeft( ++$counter, $spacer, '0');
 
-			$builder->addDefinition( $name = $this->prefix("command.$index"))
+			$builder->addDefinition( $name = $this->prefix("command.$suffix"))
 				->setType( $type )
 				->setInject();
 
-			$services[ $name ] = $type;
+			$services[] = $name;
 		}
 
-		foreach( $services as $name => $type ) {
-			$real = $this->getCommandName( $type );
-
-			if( $real and ( $dupe = $this->services[ $real ] ?? null )) {
-				throw new InvalidStateException("Duplicate name '$real' found in commands {$services[ $dupe ]} and $type.");
-			}
-
-			if( $real ) {
-				$this->services[ $real ] = $name;
-			} else {
-				$this->commands[] = $name;
-			}
-		}
-
-		if( $this->services ) {
+		if( $services ) {
 			$factory = $builder->getDefinition( $this->prefix('command.factory'));
-			$factory->setArguments(['@container', $this->services ]);
-		}
-
-		if( $this->commands ) {
-			$this->commands = array_map( function( $command ) { return "@$command"; }, $this->commands );
-
-			$console = $builder->getDefinition( $this->prefix('application'));
-			$console->addSetup('addCommands', [ $this->commands ]);
+			$factory->addSetup('add', $services );
 		}
 	}
 
 	/**
-	 * @param string $type
-	 * @return bool
+	 * @return array
 	 */
-	private function isCommand( string $type ) : bool
+	private function getExtensionParams() : array
 	{
-		try {
-			$class = new ReflectionClass( $type );
-
-			return $class->isSubclassOf( Symfony\Command\Command::class ) and $class->isInstantiable();
-		} catch( ReflectionException $ex ) {
-			return false;
-		}
-	}
-
-	/**
-	 * @param string $type
-	 * @return string | null
-	 */
-	private function getCommandName( string $type ) : ?string
-	{
-		try {
-			$class = new ReflectionClass( $type );
-
-			/** @var Symfony\Command\Command $command */
-			$command = $class->newInstanceWithoutConstructor();
-		} catch( ReflectionException $ex ) {
-			return null;
-		}
+		$input = new ContainerInput( $this->getContainerBuilder() );
 
 		try {
-			$command->setDefinition( new Symfony\Input\InputDefinition );
-
-			$method = $class->getMethod('configure');
-			$method->setAccessible( true );
-			$method->invoke( $command );
-
-			return $command->getName();
-		} catch( Throwable $ex ) {
-			return null;
+			$cache = $input->create('productionMode')
+				->bool()
+				->fetch();
+		} catch( ValidatorException $ex ) {
+			$cache = true;
 		}
+
+		$input = new ExtensionInput( $this );
+
+		$param['cache'] = $input->create('cache')
+			->optional( $cache )
+			->bool()
+			->fetch();
+
+		return $param;
 	}
 
 	/**
