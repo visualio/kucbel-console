@@ -147,6 +147,11 @@ class CommandFactory implements CommandLoaderInterface
 				}
 
 				$code = $command->getName();
+
+				if( !$code ) {
+					throw new InvalidStateException("Command '$name' doesn't have a name.");
+				}
+
 				$dupe = $codes[ $code ] ?? null;
 
 				if( $dupe ) {
