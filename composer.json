@@ -9,6 +9,7 @@
 	}],
 	"require": {
 		"php": "^7.1",
+		"nette/caching": "^2.5",
 		"nette/di": "^2.4",
 		"nette/http": "^2.4",
 		"nette/utils": "^2.5",
