@@ -13,6 +13,7 @@ use Nette\Loaders\RobotLoader;
 use Nette\Utils\Strings;
 use ReflectionClass;
 use Symfony\Component\Console as Symfony;
+use Tracy\ILogger;
 
 class ConsoleExtension extends CompilerExtension
 {
@@ -37,14 +38,18 @@ class ConsoleExtension extends CompilerExtension
 			->setType( Console\Command\CommandFactory::class )
 			->setArguments(['@container', "@$storage"]);
 
+		$logger = ILogger::class;
+
 		$param = $this->getApplicationParams();
 
-		$builder->addDefinition( $this->prefix('application'))
-			->setType( Symfony\Application::class )
-			->setArguments([ $param['name'], $param['ver'] ])
+		$builder->addDefinition( $console = $this->prefix('application'))
+			->setType( Console\Application::class )
+			->setArguments(["@$logger", $param['name'], $param['ver'] ])
 			->addSetup('setCommandLoader', ["@$loader"])
 			->addSetup('setCatchExceptions', [ $param['catch'] ])
 			->addSetup('setAutoExit', [ $param['exit'] ]);
+
+		$builder->addAlias('console', $console );
 
 		$param = $this->getHttpParams();
 
@@ -170,7 +175,13 @@ class ConsoleExtension extends CompilerExtension
 	 */
 	private function getApplicationParams() : array
 	{
-		$input = new ExtensionInput( $this, 'app');
+		$input = new ExtensionInput( $this );
+
+		if( $input->has('app')) {
+			$input = $input->section('app');
+		} else {
+			$input = $input->section('application');
+		}
 
 		$param['name'] = $input->create('name')
 			->optional('C.P.A.M. - Console Peasant Assistance Module')
@@ -183,12 +194,12 @@ class ConsoleExtension extends CompilerExtension
 			->fetch();
 
 		$param['exit'] = $input->create('exit')
-			->optional( false )
+			->optional( true )
 			->bool()
 			->fetch();
 
 		$param['catch'] = $input->create('catch')
-			->optional( false )
+			->optional( true )
 			->bool()
 			->fetch();
 
