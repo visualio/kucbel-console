@@ -11,6 +11,7 @@ use Nette\Caching\Storages\MemoryStorage;
 use Nette\DI\CompilerExtension;
 use Nette\Loaders\RobotLoader;
 use Nette\Utils\Strings;
+use ReflectionClass;
 use Symfony\Component\Console as Symfony;
 
 class ConsoleExtension extends CompilerExtension
@@ -59,6 +60,8 @@ class ConsoleExtension extends CompilerExtension
 
 	/**
 	 * Compile
+	 *
+	 * @throws
 	 */
 	function beforeCompile()
 	{
@@ -75,7 +78,9 @@ class ConsoleExtension extends CompilerExtension
 			$robot->rebuild();
 
 			foreach( $robot->getIndexedClasses() as $type => $path ) {
-				if( is_subclass_of( $type, Symfony\Command\Command::class, true )) {
+				$class = new ReflectionClass( $type );
+
+				if( $class->isSubclassOf( Symfony\Command\Command::class ) and $class->isInstantiable() ) {
 					$commands[ $type ] = false;
 				}
 			}
