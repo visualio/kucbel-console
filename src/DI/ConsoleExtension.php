@@ -10,7 +10,6 @@ use Nette\Caching\IStorage;
 use Nette\Caching\Storages\MemoryStorage;
 use Nette\DI\CompilerExtension;
 use Nette\Loaders\RobotLoader;
-use Nette\PhpGenerator\ClassType;
 use Nette\Utils\Strings;
 use ReflectionClass;
 use Symfony\Component\Console as Symfony;
@@ -62,17 +61,6 @@ class ConsoleExtension extends CompilerExtension
 			$builder->getDefinition('http.request')
 				->setFactory("@$request::create");
 		}
-	}
-
-	/**
-	 * Complete
-	 *
-	 * @param ClassType $class
-	 */
-	function afterCompile( ClassType $class )
-	{
-		$input = new ExtensionInput( $this );
-		$input->validate();
 	}
 
 	/**
@@ -261,6 +249,8 @@ class ConsoleExtension extends CompilerExtension
 			->optional( PHP_SAPI === 'cli')
 			->bool()
 			->fetch();
+
+		$input->validate();
 
 		return $param;
 	}
