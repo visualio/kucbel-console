@@ -140,7 +140,7 @@ class ConsoleExtension extends CompilerExtension
 
 			foreach( $commands as $command ) {
 				if( $type = $command->getType() ) {
-					foreach( $param as ['name' => $name, 'regex'=> $regex, 'class' => $class ]) {
+					foreach( $param as [ $name, $regex, $class ]) {
 						if(( $regex and Strings::match( $type, $regex )) or ( $class and is_a( $type, $class, true ))) {
 							$command->addSetup("?->setName(\"{$name}:{?->getName()}\")", ['@self', '@self']);
 							break;
@@ -250,8 +250,6 @@ class ConsoleExtension extends CompilerExtension
 			->bool()
 			->fetch();
 
-		$input->validate();
-
 		return $param;
 	}
 
@@ -285,14 +283,12 @@ class ConsoleExtension extends CompilerExtension
 						$regex = null;
 					}
 
-					$param[] = [
-						'name'	=> $name,
-						'regex' => $regex,
-						'class'	=> $class,
-					];
+					$param[] = [ $name, $regex, $class ];
 				}
 			}
 		}
+
+		$input->validate();
 
 		return $param;
 	}
