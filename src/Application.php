@@ -4,6 +4,7 @@ namespace Kucbel\Console;
 
 use Exception;
 use Symfony\Component\Console as Symfony;
+use Symfony\Component\Console\Helper\HelperSet;
 use Symfony\Component\Console\Output\OutputInterface;
 use Tracy\ILogger;
 
@@ -26,6 +27,18 @@ class Application extends Symfony\Application
 		parent::__construct( $name, $version );
 
 		$this->logger = $logger;
+	}
+
+	/**
+	 * @param HelperSet $helpers
+	 */
+	function addHelperSet( HelperSet $helpers )
+	{
+		$defaults = $this->getHelperSet();
+
+		foreach( $helpers as $alias => $helper ) {
+			$defaults->set( $helper, $alias );
+		}
 	}
 
 	/**

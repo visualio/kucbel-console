@@ -5,7 +5,6 @@ namespace Kucbel\Console\Command;
 use Nette\Caching\Cache;
 use Nette\Caching\IStorage;
 use Nette\DI\Container;
-use Nette\InvalidArgumentException;
 use Nette\InvalidStateException;
 use Nette\SmartObject;
 use Symfony\Component\Console\Command\Command;
@@ -58,15 +57,13 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function add( string ...$names )
 	{
-		if( !$names ) {
-			throw new InvalidArgumentException;
-		}
+		if( $names ) {
+			foreach( $names as $name ) {
+				$this->waits[] = $name;
+			}
 
-		foreach( $names as $name ) {
-			$this->waits[] = $name;
+			$this->build = true;
 		}
-
-		$this->build = true;
 	}
 
 	/**
@@ -81,13 +78,13 @@ class CommandFactory implements CommandLoaderInterface
 		$service = $this->names[ $name ] ?? null;
 
 		if( !$service ) {
-			throw new CommandNotFoundException("Command '$name' does not exist.");
+			throw new CommandNotFoundException("Command '$name' doesn't exist.");
 		}
 
 		$command = $this->container->getService( $service );
 
 		if( !$command instanceof Command ) {
-			throw new CommandNotFoundException("Command '$name' does not exist.");
+			throw new CommandNotFoundException("Command '$name' doesn't exist.");
 		}
 
 		return $command;
@@ -123,7 +120,7 @@ class CommandFactory implements CommandLoaderInterface
 			$this->build = false;
 
 			if( $this->waits ) {
-				$hash = md5( json_encode( $this->waits ));
+				$hash = md5( implode('@', $this->waits ));
 
 				$this->names = $this->cache->load( $hash, [ $this, 'index']);
 			}
@@ -136,32 +133,32 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function index() : array
 	{
-		$codes = [];
+		$names = [];
 
 		if( $this->waits ) {
-			foreach( $this->waits as $name ) {
-				$command = $this->container->getService( $name );
+			foreach( $this->waits as $wait ) {
+				$command = $this->container->getService( $wait );
 
 				if( !$command instanceof Command ) {
-					throw new InvalidStateException("Service '$name' must be a command.");
+					throw new InvalidStateException("Service '$wait' must be a command.");
 				}
 
-				$code = $command->getName();
+				$name = $command->getName();
 
-				if( !$code ) {
-					throw new InvalidStateException("Command '$name' doesn't have a name.");
+				if( !$name ) {
+					throw new InvalidStateException("Command '$wait' doesn't have a name.");
 				}
 
-				$dupe = $codes[ $code ] ?? null;
+				$dupe = $names[ $name ] ?? null;
 
 				if( $dupe ) {
-					throw new InvalidStateException("Duplicate command '$code' found in services '$dupe' and '$name'.");
+					throw new InvalidStateException("Duplicate command '$name' found in services '$dupe' and '$wait'.");
 				}
 
-				$codes[ $code ] = $name;
+				$names[ $name ] = $wait;
 			}
 		}
 
-		return $codes;
+		return $names;
 	}
 }

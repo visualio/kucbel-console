@@ -10,6 +10,7 @@ use Nette\Caching\IStorage;
 use Nette\Caching\Storages\MemoryStorage;
 use Nette\DI\CompilerExtension;
 use Nette\Loaders\RobotLoader;
+use Nette\PhpGenerator\ClassType;
 use Nette\Utils\Strings;
 use ReflectionClass;
 use Symfony\Component\Console as Symfony;
@@ -64,6 +65,17 @@ class ConsoleExtension extends CompilerExtension
 	}
 
 	/**
+	 * Complete
+	 *
+	 * @param ClassType $class
+	 */
+	function afterCompile( ClassType $class )
+	{
+		$input = new ExtensionInput( $this );
+		$input->validate();
+	}
+
+	/**
 	 * Compile
 	 *
 	 * @throws
@@ -72,41 +84,39 @@ class ConsoleExtension extends CompilerExtension
 	{
 		$builder = $this->getContainerBuilder();
 
-		$commands =
+		$register =
 		$services = [];
 
 		$param = $this->getCommandParams();
 
-		if( $param['scan'] ) {
+		if( $param ) {
 			$robot = new RobotLoader;
-			$robot->addDirectory( $param['scan'] );
+			$robot->addDirectory( $param );
 			$robot->rebuild();
 
 			foreach( $robot->getIndexedClasses() as $type => $path ) {
 				$class = new ReflectionClass( $type );
 
 				if( $class->isSubclassOf( Symfony\Command\Command::class ) and $class->isInstantiable() ) {
-					$commands[ $type ] = false;
+					$register[ $type ] = false;
 				}
 			}
 		}
 
-		$definitions = $builder->findByType( Symfony\Command\Command::class );
+		$commands = $builder->findByType( Symfony\Command\Command::class );
 
-		foreach( $definitions as $name => $definition ) {
-			$type = $definition->getType();
-
+		foreach( $commands as $name => $command ) {
 			$services[] = $name;
 
-			if( $type ) {
-				$commands[ $type ] = true;
+			if( $type = $command->getType() ) {
+				$register[ $type ] = true;
 			}
 		}
 
 		$counter = 0;
-		$spacer = strlen( count( $commands ));
+		$spacer = strlen( count( $register ));
 
-		foreach( $commands as $type => $exist ) {
+		foreach( $register as $type => $exist ) {
 			if( $exist ) {
 				continue;
 			}
@@ -123,6 +133,33 @@ class ConsoleExtension extends CompilerExtension
 		if( $services ) {
 			$factory = $builder->getDefinition( $this->prefix('command.factory'));
 			$factory->addSetup('add', $services );
+		}
+
+		$helpers = $builder->findByType( Symfony\Helper\HelperSet::class );
+
+		if( $helpers ) {
+			$console = $builder->getDefinition( $this->prefix('application'));
+
+			foreach( $helpers as $name => $helper ) {
+				$console->addSetup('addHelperSet', ["@$name"]);
+			}
+		}
+
+		$param = $this->getAliasParams();
+
+		if( $param ) {
+			$commands = $builder->findByType( Symfony\Command\Command::class );
+
+			foreach( $commands as $command ) {
+				if( $type = $command->getType() ) {
+					foreach( $param as ['name' => $name, 'regex'=> $regex, 'class' => $class ]) {
+						if(( $regex and Strings::match( $type, $regex )) or ( $class and is_a( $type, $class, true ))) {
+							$command->addSetup("?->setName(\"{$name}:{?->getName()}\")", ['@self', '@self']);
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -141,7 +178,7 @@ class ConsoleExtension extends CompilerExtension
 			$cache = true;
 		}
 
-		$input = new ExtensionInput( $this );
+		$input = new ExtensionInput( $this, 'command');
 
 		$param['cache'] = $input->create('cache')
 			->optional( $cache )
@@ -154,20 +191,16 @@ class ConsoleExtension extends CompilerExtension
 	/**
 	 * @return array
 	 */
-	private function getCommandParams() : array
+	private function getCommandParams() : ?array
 	{
-		$input = new ExtensionInput( $this );
+		$input = new ExtensionInput( $this,  'command');
 
-		$param['scan'] = $input->create('scan')
+		return $input->create('scan')
 			->optional()
 			->array()
 			->string()
 			->dir( true )
 			->fetch();
-
-		$input->validate();
-
-		return $param;
 	}
 
 	/**
@@ -175,13 +208,7 @@ class ConsoleExtension extends CompilerExtension
 	 */
 	private function getApplicationParams() : array
 	{
-		$input = new ExtensionInput( $this );
-
-		if( $input->has('app')) {
-			$input = $input->section('app');
-		} else {
-			$input = $input->section('application');
-		}
+		$input = new ExtensionInput( $this, 'application');
 
 		$param['name'] = $input->create('name')
 			->optional('C.P.A.M. - Console Peasant Assistance Module')
@@ -189,7 +216,7 @@ class ConsoleExtension extends CompilerExtension
 			->fetch();
 
 		$param['ver'] = $input->create('version')
-			->optional('UNKNOWN')
+			->optional('1.3.0')
 			->string()
 			->fetch();
 
@@ -234,6 +261,48 @@ class ConsoleExtension extends CompilerExtension
 			->optional( PHP_SAPI === 'cli')
 			->bool()
 			->fetch();
+
+		return $param;
+	}
+
+	/**
+	 * @return array
+	 */
+	private function getAliasParams() : ?array
+	{
+		$quote = preg_quote('`~!@%&;/', '~');
+		$param = null;
+
+		$input = new ExtensionInput( $this );
+
+		$names = $input->create('alias')
+			->optional()
+			->array( true )
+			->string()
+			->match('~^[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*$~i')
+			->fetch();
+
+		if( $names ) {
+			foreach( $names as $name ) {
+				$aliases = $input->create("alias.{$name}")->array()->string();
+
+				foreach( $aliases as $alias ) {
+					try {
+						$regex = $alias->match("~^([{$quote}]).+\\1[a-z]*$~i")->fetch();
+						$class = null;
+					} catch( ValidatorException $ex ) {
+						$class = $alias->impl( Symfony\Command\Command::class, true )->fetch();
+						$regex = null;
+					}
+
+					$param[] = [
+						'name'	=> $name,
+						'regex' => $regex,
+						'class'	=> $class,
+					];
+				}
+			}
+		}
 
 		return $param;
 	}
