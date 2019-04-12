@@ -118,12 +118,7 @@ class CommandFactory implements CommandLoaderInterface
 	{
 		if( $this->build ) {
 			$this->build = false;
-
-			if( $this->waits ) {
-				$hash = md5( implode('@', $this->waits ));
-
-				$this->names = $this->cache->load( $hash, [ $this, 'index']);
-			}
+			$this->names = $this->cache->load( md5( implode(', ', $this->waits )), [ $this, 'index']);
 		}
 	}
 
@@ -135,28 +130,26 @@ class CommandFactory implements CommandLoaderInterface
 	{
 		$names = [];
 
-		if( $this->waits ) {
-			foreach( $this->waits as $wait ) {
-				$command = $this->container->getService( $wait );
+		foreach( $this->waits as $wait ) {
+			$command = $this->container->getService( $wait );
 
-				if( !$command instanceof Command ) {
-					throw new InvalidStateException("Service '$wait' must be a command.");
-				}
-
-				$name = $command->getName();
-
-				if( !$name ) {
-					throw new InvalidStateException("Command '$wait' doesn't have a name.");
-				}
-
-				$dupe = $names[ $name ] ?? null;
-
-				if( $dupe ) {
-					throw new InvalidStateException("Duplicate command '$name' found in services '$dupe' and '$wait'.");
-				}
-
-				$names[ $name ] = $wait;
+			if( !$command instanceof Command ) {
+				throw new InvalidStateException("Service '$wait' must be a command.");
 			}
+
+			$name = $command->getName();
+
+			if( !$name ) {
+				throw new InvalidStateException("Command '$wait' doesn't have a name.");
+			}
+
+			$dupe = $names[ $name ] ?? null;
+
+			if( $dupe ) {
+				throw new InvalidStateException("Duplicate command '$name' found in services '$dupe' and '$wait'.");
+			}
+
+			$names[ $name ] = $wait;
 		}
 
 		return $names;

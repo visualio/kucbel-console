@@ -2,33 +2,31 @@
 
 namespace Kucbel\Console\Output;
 
-use Nette\InvalidStateException;
-use Nette\SmartObject;
 use Nette\Utils\DateTime;
-use Symfony\Component\Console\Formatter\OutputFormatterInterface;
-use Symfony\Component\Console\Helper\ProgressBar;
-use Symfony\Component\Console\Output\ConsoleOutputInterface;
-use Symfony\Component\Console\Output\ConsoleSectionOutput;
 use Symfony\Component\Console\Output\OutputInterface;
+use Iterator;
+use stdClass;
 
-class TimerOutput implements ConsoleOutputInterface
+class TimerOutput extends OutputDecorator
 {
-	use SmartObject;
-
-	/**
-	 * @var OutputInterface
-	 */
-	private $output;
+	const
+		FORMAT_DATE = 'H:i:s.u',
+		FORMAT_LINE = '%s  %s';
 
 	/**
 	 * @var string
 	 */
-	private $format;
+	private $date;
+
+	/**
+	 * @var string
+	 */
+	private $line;
 
 	/**
 	 * @var int
 	 */
-	private $level;
+	private $from;
 
 	/**
 	 * @var bool
@@ -36,155 +34,96 @@ class TimerOutput implements ConsoleOutputInterface
 	private $write = true;
 
 	/**
-	 * TimedOutput constructor.
+	 * TimeOutput constructor.
 	 *
 	 * @param OutputInterface $output
-	 * @param string $format
-	 * @param int $level
+	 * @param string $date
+	 * @param string $line
+	 * @param int $from
 	 */
-	function __construct( OutputInterface $output, string $format = 'H:i:s.u  ', int $level = self::VERBOSITY_NORMAL )
+	function __construct( OutputInterface $output, string $date = self::FORMAT_DATE, string $line = self::FORMAT_LINE, int $from = self::VERBOSITY_NORMAL )
 	{
-		$this->output = $output;
-		$this->format = $format;
-		$this->level = $level;
+		parent::__construct( $output );
+
+		$this->date = $date;
+		$this->line = $line;
+		$this->from = $from;
 	}
 
 	/**
 	 * @inheritdoc
 	 */
-	function newLine( $count = 1 )
+	function write( $messages, $newline = false, $options = self::OUTPUT_NORMAL )
 	{
-		$this->output->write( str_repeat( PHP_EOL, $count ));
-	}
+		if( $this->isTracking() ) {
+			$messages = $this->format( $messages, $newline );
+		}
 
-	/**
-	 * @param int $max
-	 *
-	 * @return ProgressBar
-	 */
-	function createProgressBar( $max = 0 )
-	{
-		return new ProgressBar( $this->output, $max );
+		$this->output->write( $messages, $newline, $options );
 	}
 
 	/**
 	 * @inheritdoc
 	 */
-	function write( $messages, $newline = false, $type = self::OUTPUT_NORMAL )
+	function writeln( $messages, $options = self::OUTPUT_NORMAL )
 	{
-		if( $this->isTracking() and $this->write ) {
-			$this->output->write(( new DateTime )->format( $this->format ));
+		if( $this->isTracking() ) {
+			$messages = $this->format( $messages, true );
 		}
 
-		$this->output->write( $messages, $newline, $type );
-
-		if( $newline ) {
-			$this->write = true;
-		} else {
-			$this->write = false;
-		}
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function writeln( $messages, $type = self::OUTPUT_NORMAL )
-	{
-		if( $this->isTracking() and $this->write ) {
-			$this->output->write(( new DateTime )->format( $this->format ));
-		}
-
-		$this->output->writeln( $messages, $type );
+		$this->output->writeln( $messages, $options );
 
 		$this->write = true;
 	}
 
 	/**
-	 * @inheritdoc
+	 * @param mixed $messages
+	 * @param bool $newline
+	 * @return array
 	 */
-	function setVerbosity( $level )
+	protected function format( $messages, $newline )
 	{
-		$this->output->setVerbosity( $level );
+		if( $messages instanceof stdClass ) {
+			$messages = (array) $messages;
+		} elseif( $messages instanceof Iterator ) {
+			$messages = iterator_to_array( $messages );
+		} elseif( is_scalar( $messages )) {
+			$messages = [ $messages ];
+		} elseif( !is_array( $messages )) {
+			$messages = (string) $messages;
+		}
+
+		$current = $this->stamp();
+
+		foreach( $messages as $i => $message ) {
+			if( $this->write ) {
+				$messages[ $i ] = sprintf( $this->line, $current, $message );
+			}
+
+			if( $newline ) {
+				$this->write = true;
+			} else {
+				$this->write = false;
+			}
+		}
+
+		return $messages;
 	}
 
 	/**
-	 * @inheritdoc
+	 * @return string
 	 */
-	function getVerbosity()
+	protected function stamp() : string
 	{
-		return $this->output->getVerbosity();
+		return ( new DateTime )->format( $this->date );
 	}
 
 	/**
-	 * @inheritdoc
+	 * @param int $from
 	 */
-	function setDecorated( $decorated )
+	function setTracking( int $from )
 	{
-		$this->output->setDecorated( $decorated );
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function isDecorated()
-	{
-		return $this->output->isDecorated();
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function setFormatter( OutputFormatterInterface $formatter )
-	{
-		$this->output->setFormatter($formatter);
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function getFormatter()
-	{
-		return $this->output->getFormatter();
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function isQuiet()
-	{
-		return $this->output->isQuiet();
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function isVerbose()
-	{
-		return $this->output->isVerbose();
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function isVeryVerbose()
-	{
-		return $this->output->isVeryVerbose();
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function isDebug()
-	{
-		return $this->output->isDebug();
-	}
-
-	/**
-	 * @param int $level
-	 */
-	function setTracking( int $level )
-	{
-		$this->level = $level;
+		$this->from = $from;
 	}
 
 	/**
@@ -192,42 +131,6 @@ class TimerOutput implements ConsoleOutputInterface
 	 */
 	function isTracking()
 	{
-		return $this->output->getVerbosity() >= $this->level;
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function getErrorOutput() : OutputInterface
-	{
-		if( $this->output instanceof ConsoleOutputInterface ) {
-			return $this->output->getErrorOutput();
-		} else {
-			return $this->output;
-		}
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function setErrorOutput( OutputInterface $error )
-	{
-		if( $this->output instanceof ConsoleOutputInterface ) {
-			$this->output->setErrorOutput( $error );
-		} else {
-			throw new InvalidStateException("Output doesn't implement console interface.");
-		}
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function section() : ConsoleSectionOutput
-	{
-		if( $this->output instanceof ConsoleOutputInterface ) {
-			return $this->output->section();
-		} else {
-			throw new InvalidStateException("Output doesn't implement console interface.");
-		}
+		return $this->output->getVerbosity() >= $this->from;
 	}
 }
