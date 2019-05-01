@@ -51,12 +51,12 @@ class ConsoleExtension extends CompilerExtension
 
 		$builder->addAlias('console', $console );
 
-		$param = $this->getHttpParams();
+		$param = $this->getRequestParams();
 
 		if( $param['active'] ) {
-			$builder->addDefinition( $request = $this->prefix('http.factory'))
+			$builder->addDefinition( $request = $this->prefix('request.factory'))
 				->setType( Console\Http\RequestFactory::class )
-				->setArguments([ $param['host'], $param['method'], $param['remote'] ]);
+				->setArguments([ $param['host'], $param['script'], $param['method'], $param['remote'] ]);
 
 			$builder->getDefinition('http.request')
 				->setFactory("@$request::create");
@@ -225,14 +225,19 @@ class ConsoleExtension extends CompilerExtension
 	/**
 	 * @return array
 	 */
-	private function getHttpParams() : array
+	private function getRequestParams() : array
 	{
-		$input = new ExtensionInput( $this, 'http');
+		$input = new ExtensionInput( $this, 'request');
 
 		$param['host'] = $input->create('host')
 			->optional('http://localhost')
 			->string()
 			->url()
+			->fetch();
+
+		$param['script'] = $input->create('script')
+			->optional()
+			->string()
 			->fetch();
 
 		$param['method'] = $input->create('method')

@@ -19,6 +19,11 @@ class RequestFactory
 	/**
 	 * @var string | null
 	 */
+	private $script;
+
+	/**
+	 * @var string | null
+	 */
 	private $method;
 
 	/**
@@ -30,12 +35,14 @@ class RequestFactory
 	 * RequestFactory constructor.
 	 *
 	 * @param string $server
+	 * @param string $script
 	 * @param string $method
 	 * @param string $remote
 	 */
-	function __construct( string $server, string $method = null, string $remote = null )
+	function __construct( string $server, string $script = null, string $method = null, string $remote = null )
 	{
 		$this->server = $server;
+		$this->script = $script;
 		$this->method = $method;
 		$this->remote = $remote;
 	}
@@ -45,6 +52,6 @@ class RequestFactory
 	 */
 	function create() : IRequest
 	{
-		return new Request( new UrlScript( $this->server ), null, null, null, null, null, $this->method, $this->remote );
+		return new Request( new UrlScript( $this->server, $this->script ), null, null, null, null, null, $this->method, $this->remote );
 	}
 }
