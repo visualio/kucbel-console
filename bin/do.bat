@@ -1,3 +1,3 @@
 @echo OFF
 setlocal DISABLEDELAYEDEXPANSION
-php "%~dp0do.php" %*
+php "%~dp0do" %*
