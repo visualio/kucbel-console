@@ -118,7 +118,7 @@ class CommandFactory implements CommandLoaderInterface
 	{
 		if( $this->build ) {
 			$this->build = false;
-			$this->names = $this->cache->load( md5( implode(', ', $this->waits )), [ $this, 'index']);
+			$this->names = $this->cache->load( implode(', ', $this->waits ), [ $this, 'index']);
 		}
 	}
 

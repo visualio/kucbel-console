@@ -3,7 +3,6 @@
 namespace Kucbel\Console\DI;
 
 use Kucbel\Console;
-use Kucbel\Scalar\Input\ContainerInput;
 use Kucbel\Scalar\Input\ExtensionInput;
 use Kucbel\Scalar\Validator\ValidatorException;
 use Nette\Caching\IStorage;
@@ -56,7 +55,7 @@ class ConsoleExtension extends CompilerExtension
 		if( $param['active'] ) {
 			$builder->addDefinition( $request = $this->prefix('request.factory'))
 				->setType( Console\Http\RequestFactory::class )
-				->setArguments([ $param['host'], $param['script'], $param['method'], $param['remote'] ]);
+				->setArguments([ $param['server'], $param['script'], $param['method'], $param['remote'] ]);
 
 			$builder->getDefinition('http.request')
 				->setFactory("@$request::create");
@@ -156,20 +155,10 @@ class ConsoleExtension extends CompilerExtension
 	 */
 	private function getExtensionParams() : array
 	{
-		$input = new ContainerInput( $this->getContainerBuilder() );
-
-		try {
-			$cache = $input->create('productionMode')
-				->bool()
-				->fetch();
-		} catch( ValidatorException $ex ) {
-			$cache = true;
-		}
-
 		$input = new ExtensionInput( $this, 'command');
 
 		$param['cache'] = $input->create('cache')
-			->optional( $cache )
+			->optional( false )
 			->bool()
 			->fetch();
 
@@ -204,7 +193,7 @@ class ConsoleExtension extends CompilerExtension
 			->fetch();
 
 		$param['ver'] = $input->create('version')
-			->optional('1.3.0')
+			->optional('1.4.0')
 			->string()
 			->fetch();
 
@@ -229,7 +218,7 @@ class ConsoleExtension extends CompilerExtension
 	{
 		$input = new ExtensionInput( $this, 'request');
 
-		$param['host'] = $input->create('host')
+		$param['server'] = $input->create('server')
 			->optional('http://localhost')
 			->string()
 			->url()
@@ -270,7 +259,7 @@ class ConsoleExtension extends CompilerExtension
 
 		$names = $input->create('alias')
 			->optional()
-			->array( true )
+			->index()
 			->string()
 			->match('~^[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*$~i')
 			->fetch();
@@ -293,7 +282,7 @@ class ConsoleExtension extends CompilerExtension
 			}
 		}
 
-		$input->validate();
+		$input->match();
 
 		return $param;
 	}
