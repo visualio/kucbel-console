@@ -9,14 +9,14 @@
 	}],
 	"require": {
 		"php": "^7.1",
-		"nette/caching": "^2.5",
-		"nette/di": "^2.4",
-		"nette/http": "^2.4",
-		"nette/utils": "^2.5",
+		"nette/caching": "^3.0",
+		"nette/di": "^3.0",
+		"nette/http": "^3.0",
 		"nette/robot-loader": "^3.0",
-		"symfony/console": "^4.0",
-		"symfony/debug": "^4.0",
-		"kucbel/scalar": "^2.0"
+		"nette/utils": "^3.0",
+		"symfony/console": "^4.3",
+		"symfony/debug": "^4.3",
+		"kucbel/scalar": "^3.0"
 	},
 	"autoload": {
 		"classmap": ["src"]

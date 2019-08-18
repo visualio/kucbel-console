@@ -4,7 +4,9 @@ namespace Kucbel\Console\Command;
 
 use Nette\Caching\Cache;
 use Nette\Caching\IStorage;
+use Nette\Caching\Storages\MemoryStorage;
 use Nette\DI\Container;
+use Nette\InvalidArgumentException;
 use Nette\InvalidStateException;
 use Nette\SmartObject;
 use Symfony\Component\Console\Command\Command;
@@ -46,10 +48,10 @@ class CommandFactory implements CommandLoaderInterface
 	 * @param Container $container
 	 * @param IStorage $storage
 	 */
-	function __construct( Container $container, IStorage $storage )
+	function __construct( Container $container, IStorage $storage = null )
 	{
 		$this->container = $container;
-		$this->cache = new Cache( $storage, 'CommandFactory');
+		$this->cache = new Cache( $storage ?? new MemoryStorage, 'CommandFactory');
 	}
 
 	/**
@@ -57,13 +59,15 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function add( string ...$names )
 	{
-		if( $names ) {
-			foreach( $names as $name ) {
-				$this->waits[] = $name;
-			}
-
-			$this->build = true;
+		if( !$names ) {
+			throw new InvalidArgumentException;
 		}
+
+		foreach( $names as $name ) {
+			$this->waits[] = $name;
+		}
+
+		$this->build = true;
 	}
 
 	/**
@@ -140,7 +144,7 @@ class CommandFactory implements CommandLoaderInterface
 			$name = $command->getName();
 
 			if( !$name ) {
-				throw new InvalidStateException("Command '$wait' doesn't have a name.");
+				throw new InvalidStateException("Service '$wait' doesn't have a command name.");
 			}
 
 			$dupe = $names[ $name ] ?? null;

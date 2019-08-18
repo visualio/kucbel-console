@@ -5,46 +5,53 @@ namespace Kucbel\Console\DI;
 use Kucbel\Console;
 use Kucbel\Scalar\Input\ExtensionInput;
 use Kucbel\Scalar\Validator\ValidatorException;
-use Nette\Caching\IStorage;
-use Nette\Caching\Storages\MemoryStorage;
+use Nette\Caching;
 use Nette\DI\CompilerExtension;
+use Nette\DI\Definitions\ServiceDefinition;
 use Nette\Loaders\RobotLoader;
 use Nette\Utils\Strings;
 use ReflectionClass;
 use Symfony\Component\Console as Symfony;
-use Tracy\ILogger;
+use Tracy;
 
 class ConsoleExtension extends CompilerExtension
 {
+	/**
+	 * @var ServiceDefinition
+	 */
+	private $command;
+
+	/**
+	 * @var ServiceDefinition
+	 */
+	private $console;
+
+	/**
+	 * @var ServiceDefinition | null
+	 */
+	private $request;
+
 	/**
 	 * Config
 	 */
 	function loadConfiguration()
 	{
+		$param = $this->getExtensionParams();
 		$builder = $this->getContainerBuilder();
 
-		$param = $this->getExtensionParams();
+		$logger = Tracy\ILogger::class;
+		$storage = Caching\IStorage::class;
 
-		if( $param['cache'] ) {
-			$storage = IStorage::class;
-		} else {
-			$builder->addDefinition( $storage = $this->prefix('storage'))
-				->setType( MemoryStorage::class )
-				->setAutowired( false );
-		}
-
-		$builder->addDefinition( $loader = $this->prefix('command.factory'))
+		$this->command = $builder->addDefinition( $command = $this->prefix('command.factory'))
 			->setType( Console\Command\CommandFactory::class )
-			->setArguments(['@container', "@$storage"]);
-
-		$logger = ILogger::class;
+			->setArguments(['@container', $param['cache'] ? "@$storage" : null ]);
 
 		$param = $this->getApplicationParams();
 
-		$builder->addDefinition( $console = $this->prefix('application'))
+		$this->console = $builder->addDefinition( $console = $this->prefix('application'))
 			->setType( Console\Application::class )
 			->setArguments(["@$logger", $param['name'], $param['ver'] ])
-			->addSetup('setCommandLoader', ["@$loader"])
+			->addSetup('setCommandLoader', ["@$command"])
 			->addSetup('setCatchExceptions', [ $param['catch'] ])
 			->addSetup('setAutoExit', [ $param['exit'] ]);
 
@@ -53,12 +60,13 @@ class ConsoleExtension extends CompilerExtension
 		$param = $this->getRequestParams();
 
 		if( $param['active'] ) {
-			$builder->addDefinition( $request = $this->prefix('request.factory'))
+			$this->request = $builder->addDefinition( $request = $this->prefix('request.factory'))
 				->setType( Console\Http\RequestFactory::class )
 				->setArguments([ $param['server'], $param['script'], $param['method'], $param['remote'] ]);
 
-			$builder->getDefinition('http.request')
-				->setFactory("@$request::create");
+			/** @var ServiceDefinition $service */
+			$service = $builder->getDefinition( 'http.request');
+			$service->setFactory("@$request::create");
 		}
 	}
 
@@ -69,81 +77,80 @@ class ConsoleExtension extends CompilerExtension
 	 */
 	function beforeCompile()
 	{
-		$builder = $this->getContainerBuilder();
-
-		$register =
-		$services = [];
+		$types =
+		$names = [];
 
 		$param = $this->getCommandParams();
+		$builder = $this->getContainerBuilder();
 
 		if( $param ) {
 			$robot = new RobotLoader;
-			$robot->addDirectory( $param );
+			$robot->addDirectory( ...$param );
 			$robot->rebuild();
 
 			foreach( $robot->getIndexedClasses() as $type => $path ) {
 				$class = new ReflectionClass( $type );
 
 				if( $class->isSubclassOf( Symfony\Command\Command::class ) and $class->isInstantiable() ) {
-					$register[ $type ] = false;
+					$types[ $type ] = true;
 				}
 			}
 		}
 
-		$commands = $builder->findByType( Symfony\Command\Command::class );
+		$services = $builder->findByType( Symfony\Command\Command::class );
 
-		foreach( $commands as $name => $command ) {
-			$services[] = $name;
+		foreach( $services as $name => $service ) {
+			$names[] = $name;
 
-			if( $type = $command->getType() ) {
-				$register[ $type ] = true;
+			if( $type = $service->getType() ) {
+				$types[ $type ] = false;
 			}
 		}
 
-		$counter = 0;
-		$spacer = strlen( count( $register ));
+		$count = 0;
+		$space = strlen( count( $types ));
 
-		foreach( $register as $type => $exist ) {
-			if( $exist ) {
+		foreach( $types as $type => $new ) {
+			if( !$new ) {
 				continue;
 			}
 
-			$suffix = Strings::padLeft( ++$counter, $spacer, '0');
+			$number = Strings::padLeft( ++$count, $space, '0');
 
-			$builder->addDefinition( $name = $this->prefix("command.$suffix"))
+			$builder->addDefinition( $names[] = $this->prefix("command.$number"))
 				->setType( $type )
-				->setInject();
-
-			$services[] = $name;
+				->addTag('inject');
 		}
+
+		if( $names ) {
+			$this->command->addSetup('add', $names );
+		}
+
+		$services = $builder->findByType( Symfony\Helper\HelperSet::class );
 
 		if( $services ) {
-			$factory = $builder->getDefinition( $this->prefix('command.factory'));
-			$factory->addSetup('add', $services );
-		}
-
-		$helpers = $builder->findByType( Symfony\Helper\HelperSet::class );
-
-		if( $helpers ) {
-			$console = $builder->getDefinition( $this->prefix('application'));
-
-			foreach( $helpers as $name => $helper ) {
-				$console->addSetup('addHelperSet', ["@$name"]);
+			foreach( $services as $name => $service ) {
+				$this->console->addSetup('addHelperSet', ["@$name"]);
 			}
 		}
 
 		$param = $this->getAliasParams();
 
 		if( $param ) {
-			$commands = $builder->findByType( Symfony\Command\Command::class );
+			$services = $builder->findByType( Symfony\Command\Command::class );
 
-			foreach( $commands as $command ) {
-				if( $type = $command->getType() ) {
-					foreach( $param as [ $name, $regex, $class ]) {
-						if(( $regex and Strings::match( $type, $regex )) or ( $class and is_a( $type, $class, true ))) {
-							$command->addSetup("?->setName(\"{$name}:{?->getName()}\")", ['@self', '@self']);
-							break;
-						}
+			foreach( $services as $service ) {
+				$type = $service->getType();
+
+				if( !$type or !$service instanceof ServiceDefinition ) {
+					continue;
+				}
+
+				foreach( $param as [ $name, $regex, $class ]) {
+					if(( $regex and Strings::match( $type, $regex )) or ( $class and is_a( $type, $class, true ))) {
+						$service->addSetup("?->setName(\"{$name}:{?->getName()}\")", ['@self', '@self']);
+
+						break;
 					}
 				}
 			}
@@ -168,21 +175,6 @@ class ConsoleExtension extends CompilerExtension
 	/**
 	 * @return array
 	 */
-	private function getCommandParams() : ?array
-	{
-		$input = new ExtensionInput( $this,  'command');
-
-		return $input->create('scan')
-			->optional()
-			->array()
-			->string()
-			->dir( true )
-			->fetch();
-	}
-
-	/**
-	 * @return array
-	 */
 	private function getApplicationParams() : array
 	{
 		$input = new ExtensionInput( $this, 'application');
@@ -193,7 +185,7 @@ class ConsoleExtension extends CompilerExtension
 			->fetch();
 
 		$param['ver'] = $input->create('version')
-			->optional('1.4.0')
+			->optional('1.5.0')
 			->string()
 			->fetch();
 
@@ -209,7 +201,6 @@ class ConsoleExtension extends CompilerExtension
 
 		return $param;
 	}
-
 
 	/**
 	 * @return array
@@ -247,8 +238,24 @@ class ConsoleExtension extends CompilerExtension
 		return $param;
 	}
 
+
 	/**
-	 * @return array
+	 * @return array | null
+	 */
+	private function getCommandParams() : ?array
+	{
+		$input = new ExtensionInput( $this, 'command');
+
+		return $input->create('scan')
+			->optional()
+			->array()
+			->string()
+			->dir( true )
+			->fetch();
+	}
+
+	/**
+	 * @return array | null
 	 */
 	private function getAliasParams() : ?array
 	{
