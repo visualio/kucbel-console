@@ -119,7 +119,7 @@ class ConsoleExtension extends CompilerExtension
 
 			$builder->addDefinition( $names[] = $this->prefix("command.$number"))
 				->setType( $type )
-				->addTag('inject');
+				->addTag('nette.inject');
 		}
 
 		if( $names ) {
