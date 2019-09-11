@@ -52,6 +52,6 @@ class RequestFactory
 	 */
 	function create() : IRequest
 	{
-		return new Request( new UrlScript( $this->server, $this->script ), null, null, null, null, null, $this->method, $this->remote );
+		return new Request( new UrlScript( $this->server, $this->script ?? ''), null, null, null, null, null, $this->method, $this->remote );
 	}
 }
