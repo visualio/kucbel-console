@@ -250,7 +250,7 @@ class ConsoleExtension extends CompilerExtension
 			->optional()
 			->array()
 			->string()
-			->dir( true )
+			->folder()
 			->fetch();
 	}
 
