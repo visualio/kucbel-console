@@ -185,7 +185,7 @@ class ConsoleExtension extends CompilerExtension
 			->fetch();
 
 		$param['ver'] = $input->create('version')
-			->optional('1.5.0')
+			->optional('2.0.0')
 			->string()
 			->fetch();
 
@@ -271,21 +271,23 @@ class ConsoleExtension extends CompilerExtension
 			->match('~^[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*$~i')
 			->fetch();
 
-		if( $names ) {
-			foreach( $names as $name ) {
-				$aliases = $input->create("alias.{$name}")->array()->string();
+		foreach( $names ?? [] as $name ) {
+			$aliases = $input->create("alias.{$name}")->array();
 
-				foreach( $aliases as $alias ) {
-					try {
-						$regex = $alias->match("~^([{$quote}]).+\\1[a-z]*$~i")->fetch();
-						$class = null;
-					} catch( ValidatorException $ex ) {
-						$class = $alias->impl( Symfony\Command\Command::class, true )->fetch();
-						$regex = null;
-					}
-
-					$param[] = [ $name, $regex, $class ];
+			foreach( $aliases as $alias ) {
+				try {
+					$class = null;
+					$regex = $alias->string()
+						->match("~^([{$quote}]).+\\1[a-z]*$~i")
+						->fetch();
+				} catch( ValidatorException $ex ) {
+					$regex = null;
+					$class = $alias->class()
+						->extend( Symfony\Command\Command::class )
+						->fetch();
 				}
+
+				$param[] = [ $name, $regex, $class ];
 			}
 		}
 
