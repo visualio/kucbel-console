@@ -272,19 +272,17 @@ class ConsoleExtension extends CompilerExtension
 			->fetch();
 
 		foreach( $names ?? [] as $name ) {
-			$aliases = $input->create("alias.{$name}")->array();
+			$aliases = $input->create("alias.{$name}")
+				->array()
+				->string();
 
 			foreach( $aliases as $alias ) {
 				try {
+					$regex = $alias->match("~^([{$quote}]).+\\1[a-z]*$~i")->fetch();
 					$class = null;
-					$regex = $alias->string()
-						->match("~^([{$quote}]).+\\1[a-z]*$~i")
-						->fetch();
 				} catch( ValidatorException $ex ) {
+					$class = $alias->class( Symfony\Command\Command::class )->fetch();
 					$regex = null;
-					$class = $alias->class()
-						->extend( Symfony\Command\Command::class )
-						->fetch();
 				}
 
 				$param[] = [ $name, $regex, $class ];
