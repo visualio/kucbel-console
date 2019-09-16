@@ -182,11 +182,14 @@ class ConsoleExtension extends CompilerExtension
 		$param['name'] = $input->create('name')
 			->optional('C.P.A.M. - Console Peasant Assistance Module')
 			->string()
+			->length( 100, 1 )
 			->fetch();
 
 		$param['ver'] = $input->create('version')
 			->optional('2.0.0')
 			->string()
+			->match('~^[0-9]+([.][0-9]+)$~')
+			->length( 100, 1 )
 			->fetch();
 
 		$param['exit'] = $input->create('exit')
@@ -223,6 +226,7 @@ class ConsoleExtension extends CompilerExtension
 		$param['method'] = $input->create('method')
 			->optional('GET')
 			->string()
+			->equal('GET', 'POST', 'HEAD', 'PUT', 'DELETE', 'PATCH', 'OPTIONS')
 			->fetch();
 
 		$param['remote'] = $input->create('remote')
