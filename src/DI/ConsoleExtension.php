@@ -188,7 +188,7 @@ class ConsoleExtension extends CompilerExtension
 		$param['ver'] = $input->create('version')
 			->optional('2.0.0')
 			->string()
-			->match('~^[0-9]+([.][0-9]+)$~')
+			->match('~^[0-9]+([.][0-9]+){0,3}$~')
 			->length( 100, 1 )
 			->fetch();
 
