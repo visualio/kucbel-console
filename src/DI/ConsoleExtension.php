@@ -36,38 +36,40 @@ class ConsoleExtension extends CompilerExtension
 	 */
 	function loadConfiguration()
 	{
-		$param = $this->getExtensionParams();
-		$builder = $this->getContainerBuilder();
-
 		$logger = Tracy\ILogger::class;
 		$storage = Caching\IStorage::class;
 
+		$config = $this->getExtensionParams();
+		$builder = $this->getContainerBuilder();
+
 		$this->command = $builder->addDefinition( $command = $this->prefix('command.factory'))
 			->setType( Console\Command\CommandFactory::class )
-			->setArguments(['@container', $param['cache'] ? "@$storage" : null ]);
+			->setArguments(['@container', $config['cache'] ? "@$storage" : null ]);
 
-		$param = $this->getApplicationParams();
+		$config = $this->getApplicationParams();
 
 		$this->console = $builder->addDefinition( $console = $this->prefix('application'))
 			->setType( Console\Application::class )
-			->setArguments(["@$logger", $param['name'], $param['ver'] ])
+			->setArguments(["@$logger", $config['name'], $config['ver'] ])
 			->addSetup('setCommandLoader', ["@$command"])
-			->addSetup('setCatchExceptions', [ $param['catch'] ])
-			->addSetup('setAutoExit', [ $param['exit'] ]);
+			->addSetup('setCatchExceptions', [ $config['catch'] ])
+			->addSetup('setAutoExit', [ $config['exit'] ]);
 
 		$builder->addAlias('console', $console );
 
-		$param = $this->getRequestParams();
+		$config = $this->getRequestParams();
 
-		if( $param['active'] ) {
+		if( $config['active'] ) {
 			$this->request = $builder->addDefinition( $request = $this->prefix('request.factory'))
 				->setType( Console\Http\RequestFactory::class )
-				->setArguments([ $param['server'], $param['script'], $param['method'], $param['remote'] ]);
+				->setArguments([ $config['server'], $config['script'], $config['method'], $config['remote'] ]);
 
 			/** @var ServiceDefinition $service */
 			$service = $builder->getDefinition( 'http.request');
 			$service->setFactory("@$request::create");
 		}
+
+		$this->compiler->addExportedType( Symfony\Application::class );
 	}
 
 	/**
@@ -80,12 +82,12 @@ class ConsoleExtension extends CompilerExtension
 		$types =
 		$names = [];
 
-		$param = $this->getCommandParams();
+		$config = $this->getCommandParams();
 		$builder = $this->getContainerBuilder();
 
-		if( $param ) {
+		if( $config ) {
 			$robot = new RobotLoader;
-			$robot->addDirectory( ...$param );
+			$robot->addDirectory( ...$config );
 			$robot->rebuild();
 
 			foreach( $robot->getIndexedClasses() as $type => $path ) {
@@ -134,9 +136,9 @@ class ConsoleExtension extends CompilerExtension
 			}
 		}
 
-		$param = $this->getAliasParams();
+		$config = $this->getAliasParams();
 
-		if( $param ) {
+		if( $config ) {
 			$services = $builder->findByType( Symfony\Command\Command::class );
 
 			foreach( $services as $service ) {
@@ -146,7 +148,7 @@ class ConsoleExtension extends CompilerExtension
 					continue;
 				}
 
-				foreach( $param as [ $name, $regex, $class ]) {
+				foreach( $config as [ $name, $regex, $class ]) {
 					if(( $regex and Strings::match( $type, $regex )) or ( $class and is_a( $type, $class, true ))) {
 						$service->addSetup("?->setName(\"{$name}:{?->getName()}\")", ['@self', '@self']);
 
