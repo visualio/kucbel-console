@@ -42,9 +42,15 @@ class ConsoleExtension extends CompilerExtension
 		$config = $this->getExtensionParams();
 		$builder = $this->getContainerBuilder();
 
+		if( !$config['cache'] ) {
+			$builder->addDefinition( $storage = $this->prefix('storage'))
+				->setType( Caching\Storages\MemoryStorage::class )
+				->setAutowired( false );
+		}
+
 		$this->command = $builder->addDefinition( $command = $this->prefix('command.factory'))
 			->setType( Console\Command\CommandFactory::class )
-			->setArguments(['@container', $config['cache'] ? "@$storage" : null ]);
+			->setArguments(['@container', "@$storage"]);
 
 		$config = $this->getApplicationParams();
 
@@ -64,9 +70,11 @@ class ConsoleExtension extends CompilerExtension
 				->setType( Console\Http\RequestFactory::class )
 				->setArguments([ $config['server'], $config['script'], $config['method'], $config['remote'] ]);
 
-			/** @var ServiceDefinition $service */
-			$service = $builder->getDefinition( 'http.request');
-			$service->setFactory("@$request::create");
+			$service = $builder->getDefinition('http.request');
+
+			if( $service instanceof ServiceDefinition ) {
+				$service->setFactory("@$request::create");
+			}
 		}
 
 		$this->compiler->addExportedType( Symfony\Application::class );
@@ -121,6 +129,7 @@ class ConsoleExtension extends CompilerExtension
 
 			$builder->addDefinition( $names[] = $this->prefix("command.$number"))
 				->setType( $type )
+				->setAutowired( false )
 				->addTag('nette.inject');
 		}
 
@@ -128,12 +137,24 @@ class ConsoleExtension extends CompilerExtension
 			$this->command->addSetup('add', $names );
 		}
 
+		$refer = function( string $name ) {
+			return "@$name";
+		};
+
 		$services = $builder->findByType( Symfony\Helper\HelperSet::class );
 
 		if( $services ) {
-			foreach( $services as $name => $service ) {
-				$this->console->addSetup('addHelperSet', ["@$name"]);
-			}
+			$names = array_map( $refer, array_keys( $services ));
+
+			$this->console->addSetup('addHelperSets', $names );
+		}
+
+		$services = $builder->findByType( Symfony\Helper\Helper::class );
+
+		if( $services ) {
+			$names = array_map( $refer, array_keys( $services ));
+
+			$this->console->addSetup('addHelpers', $names );
 		}
 
 		$config = $this->getAliasParams();

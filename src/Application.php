@@ -4,6 +4,7 @@ namespace Kucbel\Console;
 
 use Exception;
 use Symfony\Component\Console as Symfony;
+use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Helper\HelperSet;
 use Symfony\Component\Console\Output\OutputInterface;
 use Tracy\ILogger;
@@ -30,14 +31,28 @@ class Application extends Symfony\Application
 	}
 
 	/**
-	 * @param HelperSet $helpers
+	 * @param HelperSet ...$sets
 	 */
-	function addHelperSet( HelperSet $helpers )
+	function addHelperSets( HelperSet ...$sets )
 	{
 		$defaults = $this->getHelperSet();
 
-		foreach( $helpers as $alias => $helper ) {
-			$defaults->set( $helper, $alias );
+		foreach( $sets as $set ) {
+			foreach( $set as $alias => $helper ) {
+				$defaults->set( $helper, $alias );
+			}
+		}
+	}
+
+	/**
+	 * @param Helper ...$helpers
+	 */
+	function addHelpers( Helper ...$helpers )
+	{
+		$defaults = $this->getHelperSet();
+
+		foreach( $helpers as $helper ) {
+			$defaults->set( $helper );
 		}
 	}
 
