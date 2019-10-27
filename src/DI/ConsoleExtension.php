@@ -87,41 +87,75 @@ class ConsoleExtension extends CompilerExtension
 	 */
 	function beforeCompile()
 	{
-		$types =
-		$names = [];
+		$this->addCommands();
+		$this->addHelperSets();
+		$this->addHelpers();
+		$this->addAliases();
+	}
 
-		$config = $this->getCommandParams();
-		$builder = $this->getContainerBuilder();
+	/**
+	 * @param array $types
+	 * @throws
+	 */
+	private function findCommandTypes( array &$types = null ) : void
+	{
+		$types = (array) $types;
 
-		if( $config ) {
-			$robot = new RobotLoader;
-			$robot->addDirectory( ...$config );
-			$robot->rebuild();
+		$config = $this->getSearchParams();
 
-			foreach( $robot->getIndexedClasses() as $type => $path ) {
-				$class = new ReflectionClass( $type );
-
-				if( $class->isSubclassOf( Symfony\Command\Command::class ) and $class->isInstantiable() ) {
-					$types[ $type ] = true;
-				}
-			}
+		if( !$config ) {
+			return;
 		}
 
+		$robot = new RobotLoader;
+		$robot->addDirectory( ...$config );
+		$robot->rebuild();
+
+		foreach( $robot->getIndexedClasses() as $type => $path ) {
+			$class = new ReflectionClass( $type );
+
+			if( $class->isSubclassOf( Symfony\Command\Command::class ) and $class->isInstantiable() ) {
+				$types[ $type ] = false;
+			}
+		}
+	}
+
+	/**
+	 * @param array $types
+	 * @param array $names
+	 */
+	private function findCommandNames( array &$types, array &$names = null ) : void
+	{
+		$names = (array) $names;
+
+		$builder = $this->getContainerBuilder();
 		$services = $builder->findByType( Symfony\Command\Command::class );
 
 		foreach( $services as $name => $service ) {
 			$names[] = $name;
 
 			if( $type = $service->getType() ) {
-				$types[ $type ] = false;
+				$types[ $type ] = true;
 			}
 		}
+	}
+
+	/**
+	 * @return void
+	 * @throws
+	 */
+	private function addCommands() : void
+	{
+		$this->findCommandTypes( $types );
+		$this->findCommandNames( $types, $names );
+
+		$builder = $this->getContainerBuilder();
 
 		$count = 0;
 		$space = strlen( count( $types ));
 
-		foreach( $types as $type => $new ) {
-			if( !$new ) {
+		foreach( $types as $type => $exist ) {
+			if( $exist ) {
 				continue;
 			}
 
@@ -136,45 +170,84 @@ class ConsoleExtension extends CompilerExtension
 		if( $names ) {
 			$this->command->addSetup('add', $names );
 		}
+	}
 
-		$refer = function( string $name ) {
-			return "@$name";
-		};
+	/**
+	 * @return void
+	 */
+	private function addHelperSets() : void
+	{
+		$names = null;
 
+		$builder = $this->getContainerBuilder();
 		$services = $builder->findByType( Symfony\Helper\HelperSet::class );
 
-		if( $services ) {
-			$names = array_map( $refer, array_keys( $services ));
+		foreach( $services as $name => $service ) {
+			if( $service->getAutowired() ) {
+				$names[] = "@$name";
+			}
+		}
 
+		if( $names ) {
 			$this->console->addSetup('addHelperSets', $names );
 		}
+	}
 
+	/**
+	 * @return void
+	 */
+	private function addHelpers() : void
+	{
+		$names = null;
+
+		$builder = $this->getContainerBuilder();
 		$services = $builder->findByType( Symfony\Helper\Helper::class );
 
-		if( $services ) {
-			$names = array_map( $refer, array_keys( $services ));
-
-			$this->console->addSetup('addHelpers', $names );
+		foreach( $services as $name => $service ) {
+			if( $service->getAutowired() ) {
+				$names[] = "@$name";
+			}
 		}
 
+		if( $names ) {
+			$this->console->addSetup('addHelpers', $names );
+		}
+	}
+
+	/**
+	 * @return void
+	 */
+	private function addAliases() : void
+	{
 		$config = $this->getAliasParams();
 
-		if( $config ) {
-			$services = $builder->findByType( Symfony\Command\Command::class );
+		if( !$config ) {
+			return;
+		}
 
-			foreach( $services as $service ) {
-				$type = $service->getType();
+		$builder = $this->getContainerBuilder();
+		$services = $builder->findByType( Symfony\Command\Command::class );
 
-				if( !$type or !$service instanceof ServiceDefinition ) {
-					continue;
+		foreach( $services as $service ) {
+			$type = $service->getType();
+
+			if( !$type or !$service instanceof ServiceDefinition ) {
+				continue;
+			}
+
+			foreach( $config as [ $name, $regex, $class ]) {
+				if( $regex ) {
+					$match = Strings::match( $type, $regex ) ? true : false;
+				} elseif( $class ) {
+					$match = is_a( $type, $class, true );
+				} else {
+					$match = false;
 				}
 
-				foreach( $config as [ $name, $regex, $class ]) {
-					if(( $regex and Strings::match( $type, $regex )) or ( $class and is_a( $type, $class, true ))) {
-						$service->addSetup("?->setName(\"{$name}:{?->getName()}\")", ['@self', '@self']);
+				if( $match ) {
+					$service->addSetup("?->setName(\"{$name}:{?->getName()}\")", ['@self', '@self']);
 
-						break;
-					}
+					break;
 				}
 			}
 		}
@@ -268,7 +341,7 @@ class ConsoleExtension extends CompilerExtension
 	/**
 	 * @return array | null
 	 */
-	private function getCommandParams() : ?array
+	private function getSearchParams() : ?array
 	{
 		$input = new ExtensionInput( $this, 'command');
 
