@@ -7,6 +7,7 @@ use Symfony\Component\Console as Symfony;
 use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Helper\HelperSet;
 use Symfony\Component\Console\Output\OutputInterface;
+use Throwable;
 use Tracy\ILogger;
 
 class Application extends Symfony\Application
@@ -64,5 +65,15 @@ class Application extends Symfony\Application
 		$this->logger->log( $exception, 'console');
 
 		parent::renderException( $exception, $output );
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	function renderThrowable( Throwable $throwable, OutputInterface $output ) : void
+	{
+		$this->logger->log( $throwable, 'console');
+
+		parent::renderThrowable( $throwable, $output );
 	}
 }
