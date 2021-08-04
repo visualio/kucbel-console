@@ -8,13 +8,16 @@
 		"homepage": "https://bitbucket.org/kucbel/"
 	}],
 	"require": {
-		"php": "^7.2",
+		"php": ">= 7.4",
+
 		"nette/caching": "^3.0",
 		"nette/di": "^3.0",
 		"nette/http": "^3.0",
 		"nette/robot-loader": "^3.0",
 		"nette/utils": "^3.0",
+
 		"symfony/console": "^4.4",
+
 		"kucbel/scalar": "^3.0"
 	},
 	"autoload": {
