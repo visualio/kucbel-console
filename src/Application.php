@@ -32,15 +32,15 @@ class Application extends Symfony\Application
 	}
 
 	/**
-	 * @param HelperSet ...$sets
+	 * @param HelperSet ...$groups
 	 */
-	function addHelperSets( HelperSet ...$sets )
+	function addHelperSets( HelperSet ...$groups )
 	{
-		$defaults = $this->getHelperSet();
+		$default = $this->getHelperSet();
 
-		foreach( $sets as $set ) {
-			foreach( $set as $alias => $helper ) {
-				$defaults->set( $helper, $alias );
+		foreach( $groups as $helpers ) {
+			foreach( $helpers as $alias => $helper ) {
+				$default->set( $helper, $alias );
 			}
 		}
 	}
@@ -50,21 +50,11 @@ class Application extends Symfony\Application
 	 */
 	function addHelpers( Helper ...$helpers )
 	{
-		$defaults = $this->getHelperSet();
+		$default = $this->getHelperSet();
 
 		foreach( $helpers as $helper ) {
-			$defaults->set( $helper );
+			$default->set( $helper );
 		}
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	function renderException( Exception $exception, OutputInterface $output )
-	{
-		$this->logger->log( $exception, 'console');
-
-		parent::renderException( $exception, $output );
 	}
 
 	/**
