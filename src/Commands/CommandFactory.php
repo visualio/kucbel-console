@@ -1,9 +1,9 @@
 <?php
 
-namespace Kucbel\Console\Command;
+namespace Kucbel\Console\Commands;
 
 use Nette\Caching\Cache;
-use Nette\Caching\IStorage;
+use Nette\Caching\Storage;
 use Nette\DI\Container;
 use Nette\InvalidArgumentException;
 use Nette\InvalidStateException;
@@ -45,9 +45,9 @@ class CommandFactory implements CommandLoaderInterface
 	 * CommandFactory constructor.
 	 *
 	 * @param Container $container
-	 * @param IStorage $storage
+	 * @param Storage $storage
 	 */
-	function __construct( Container $container, IStorage $storage )
+	function __construct( Container $container, Storage $storage )
 	{
 		$this->container = $container;
 		$this->cache = new Cache( $storage, 'CommandFactory');

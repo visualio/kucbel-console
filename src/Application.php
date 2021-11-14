@@ -2,7 +2,6 @@
 
 namespace Kucbel\Console;
 
-use Exception;
 use Symfony\Component\Console as Symfony;
 use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Helper\HelperSet;
@@ -18,16 +17,10 @@ class Application extends Symfony\Application
 	private $logger;
 
 	/**
-	 * Application constructor.
-	 *
 	 * @param ILogger $logger
-	 * @param string $name
-	 * @param string $version
 	 */
-	function __construct( ILogger $logger, string $name = 'UNKNOWN', string $version = 'UNKNOWN')
+	function injectLogger( ILogger $logger ) : void
 	{
-		parent::__construct( $name, $version );
-
 		$this->logger = $logger;
 	}
 

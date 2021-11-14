@@ -1,6 +1,6 @@
 <?php
 
-namespace Kucbel\Console\Command;
+namespace Kucbel\Console\Commands;
 
 use Nette\NotImplementedException;
 use Symfony;

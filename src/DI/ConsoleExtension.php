@@ -37,7 +37,7 @@ class ConsoleExtension extends CompilerExtension
 	function loadConfiguration()
 	{
 		$logger = Tracy\ILogger::class;
-		$storage = Caching\IStorage::class;
+		$storage = Caching\Storage::class;
 
 		$config = $this->getExtensionParams();
 		$builder = $this->getContainerBuilder();
@@ -49,7 +49,7 @@ class ConsoleExtension extends CompilerExtension
 		}
 
 		$this->command = $builder->addDefinition( $command = $this->prefix('command.factory'))
-			->setType( Console\Command\CommandFactory::class )
+			->setType( Console\Commands\CommandFactory::class )
 			->setArguments(['@container', "@$storage"]);
 
 		$config = $this->getApplicationParams();
@@ -59,7 +59,8 @@ class ConsoleExtension extends CompilerExtension
 			->setArguments(["@$logger", $config['name'], $config['ver'] ])
 			->addSetup('setCommandLoader', ["@$command"])
 			->addSetup('setCatchExceptions', [ $config['catch'] ])
-			->addSetup('setAutoExit', [ $config['exit'] ]);
+			->addSetup('setAutoExit', [ $config['exit'] ])
+			->addTag('nette.inject');
 
 		$builder->addAlias('console', $console );
 
