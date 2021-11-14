@@ -36,7 +36,6 @@ class ConsoleExtension extends CompilerExtension
 	 */
 	function loadConfiguration()
 	{
-		$logger = Tracy\ILogger::class;
 		$storage = Caching\Storage::class;
 
 		$config = $this->getExtensionParams();
@@ -56,7 +55,7 @@ class ConsoleExtension extends CompilerExtension
 
 		$this->console = $builder->addDefinition( $console = $this->prefix('application'))
 			->setType( Console\Application::class )
-			->setArguments(["@$logger", $config['name'], $config['ver'] ])
+			->setArguments([ $config['name'], $config['ver'] ])
 			->addSetup('setCommandLoader', ["@$command"])
 			->addSetup('setCatchExceptions', [ $config['catch'] ])
 			->addSetup('setAutoExit', [ $config['exit'] ])
