@@ -5,7 +5,6 @@ namespace Kucbel\Console\Commands;
 use Nette\Caching\Cache;
 use Nette\Caching\Storage;
 use Nette\DI\Container;
-use Nette\InvalidArgumentException;
 use Nette\InvalidStateException;
 use Nette\SmartObject;
 use Symfony\Component\Console\Command\Command;
@@ -27,19 +26,19 @@ class CommandFactory implements CommandLoaderInterface
 	private $cache;
 
 	/**
-	 * @var string[] | null
-	 */
-	private $waits;
-
-	/**
-	 * @var string[] | null
-	 */
-	private $names;
-
-	/**
 	 * @var bool
 	 */
-	private $build = false;
+	private $rebuild = false;
+
+	/**
+	 * @var string[]
+	 */
+	private $commands = [];
+
+	/**
+	 * @var string[]
+	 */
+	private $services = [];
 
 	/**
 	 * CommandFactory constructor.
@@ -54,19 +53,18 @@ class CommandFactory implements CommandLoaderInterface
 	}
 
 	/**
-	 * @param string ...$names
+	 * @param string $command
+	 * @param string ...$commands
 	 */
-	function add( string ...$names )
+	function add( string $command, string ...$commands )
 	{
-		if( !$names ) {
-			throw new InvalidArgumentException;
+		$commands = [ $command, ...$commands ];
+
+		foreach( $commands as $command ) {
+			$this->commands[] = $command;
 		}
 
-		foreach( $names as $name ) {
-			$this->waits[] = $name;
-		}
-
-		$this->build = true;
+		$this->rebuild = true;
 	}
 
 	/**
@@ -74,34 +72,28 @@ class CommandFactory implements CommandLoaderInterface
 	 * @return Command
 	 * @throws CommandNotFoundException
 	 */
-	function get( $name ) : Command
+	function get( string $name ) : Command
 	{
 		$this->build();
 
-		$service = $this->names[ $name ] ?? null;
+		$service = $this->services[ $name ] ?? null;
 
 		if( !$service ) {
-			throw new CommandNotFoundException("Command '$name' doesn't exist.");
+			throw new CommandNotFoundException("Command \"{$name}\" doesn't exist.");
 		}
 
-		$command = $this->container->getService( $service );
-
-		if( !$command instanceof Command ) {
-			throw new CommandNotFoundException("Command '$name' doesn't exist.");
-		}
-
-		return $command;
+		return $this->container->getService( $service );
 	}
 
 	/**
 	 * @param string $name
 	 * @return bool
 	 */
-	function has( $name ) : bool
+	function has( string $name ) : bool
 	{
 		$this->build();
 
-		return isset( $this->names[ $name ] );
+		return isset( $this->services[ $name ] );
 	}
 
 	/**
@@ -111,7 +103,7 @@ class CommandFactory implements CommandLoaderInterface
 	{
 		$this->build();
 
-		return array_keys( $this->names );
+		return array_keys( $this->services );
 	}
 
 	/**
@@ -119,9 +111,9 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function build() : void
 	{
-		if( $this->build ) {
-			$this->build = false;
-			$this->names = $this->cache->load( implode(', ', $this->waits ), [ $this, 'index']);
+		if( $this->rebuild ) {
+			$this->rebuild = false;
+			$this->services = $this->cache->load( implode(', ', $this->commands ), [ $this, 'index']);
 		}
 	}
 
@@ -131,30 +123,37 @@ class CommandFactory implements CommandLoaderInterface
 	 */
 	function index() : array
 	{
-		$names = [];
+		$services = [];
 
-		foreach( $this->waits as $wait ) {
-			$command = $this->container->getService( $wait );
+		foreach( $this->commands as $command ) {
+			$service = $this->container->getService( $command );
 
-			if( !$command instanceof Command ) {
-				throw new InvalidStateException("Service '$wait' must be a command.");
+			if( !$service instanceof Command ) {
+				$reject = get_class( $service );
+
+				throw new InvalidStateException("Service {$reject} isn't command.");
 			}
 
-			$name = $command->getName();
+			$origin = $service->getName();
 
-			if( !$name ) {
-				throw new InvalidStateException("Service '$wait' doesn't have a command name.");
+			if( !$origin ) {
+				$reject = get_class( $service );
+
+				throw new InvalidStateException("Command {$reject} doesn't have a name.");
 			}
 
-			$dupe = $names[ $name ] ?? null;
+			if( isset( $services[ $origin ] )) {
+				$reject = [
+					get_class( $service ),
+					get_class( $this->container->getService( $services[ $origin ] )),
+				];
 
-			if( $dupe ) {
-				throw new InvalidStateException("Duplicate command '$name' found in services '$dupe' and '$wait'.");
+				throw new InvalidStateException("Commands {$reject[0]} and {$reject[1]} have the same name.");
 			}
 
-			$names[ $name ] = $wait;
+			$services[ $origin ] = $command;
 		}
 
-		return $names;
+		return $services;
 	}
 }

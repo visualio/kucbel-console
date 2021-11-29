@@ -2,7 +2,6 @@
 
 namespace Kucbel\Console\Http;
 
-use Nette\Http\IRequest;
 use Nette\Http\Request;
 use Nette\Http\UrlScript;
 use Nette\SmartObject;
@@ -14,7 +13,7 @@ class RequestFactory
 	/**
 	 * @var string
 	 */
-	private $server;
+	private $address;
 
 	/**
 	 * @var string | null
@@ -34,24 +33,26 @@ class RequestFactory
 	/**
 	 * RequestFactory constructor.
 	 *
-	 * @param string $server
-	 * @param string $script
-	 * @param string $method
-	 * @param string $remote
+	 * @param string $address
+	 * @param string | null $script
+	 * @param string | null $method
+	 * @param string | null $remote
 	 */
-	function __construct( string $server, string $script = null, string $method = null, string $remote = null )
+	function __construct( string $address, string $script = null, string $method = null, string $remote = null )
 	{
-		$this->server = $server;
+		$this->address = $address;
 		$this->script = $script;
 		$this->method = $method;
 		$this->remote = $remote;
 	}
 
 	/**
-	 * @return IRequest
+	 * @return Request
 	 */
-	function create() : IRequest
+	function create() : Request
 	{
-		return new Request( new UrlScript( $this->server, $this->script ?? ''), null, null, null, null, null, $this->method, $this->remote );
+		$script = new UrlScript( $this->address, $this->script ?? '');
+
+		return new Request( $script, null, null, null, null, $this->method, $this->remote );
 	}
 }

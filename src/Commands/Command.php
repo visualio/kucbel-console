@@ -4,23 +4,27 @@ namespace Kucbel\Console\Commands;
 
 use Nette\NotImplementedException;
 use Symfony;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
 
 abstract class Command extends Symfony\Component\Console\Command\Command
 {
 	const
 		ARG_REQUIRED	= InputArgument::REQUIRED,
 		ARG_OPTIONAL	= InputArgument::OPTIONAL,
-		ARG_VARIADIC	= InputArgument::IS_ARRAY,
+		ARG_MULTIPLE	= InputArgument::IS_ARRAY,
 
 		OPT_BOOLEAN		= InputOption::VALUE_NONE,
 		OPT_REQUIRED	= InputOption::VALUE_REQUIRED,
 		OPT_OPTIONAL	= InputOption::VALUE_OPTIONAL,
 		OPT_MULTIPLE	= InputOption::VALUE_IS_ARRAY,
 		OPT_NEGATIVE	= InputOption::VALUE_NEGATABLE;
+
+	/** @deprecated  */
+	const
+		ARG_VARIADIC	= InputArgument::IS_ARRAY;
 
 	/**
 	 * Command constructor.

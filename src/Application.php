@@ -17,24 +17,27 @@ class Application extends Symfony\Application
 	private $logger;
 
 	/**
-	 * @param ILogger $logger
+	 * @var string
 	 */
-	function injectLogger( ILogger $logger ) : void
+	private $level;
+
+	/**
+	 * @param ILogger $logger
+	 * @param string $level
+	 */
+	function setLogger( ILogger $logger, string $level = ILogger::EXCEPTION ) : void
 	{
 		$this->logger = $logger;
+		$this->level = $level;
 	}
 
 	/**
-	 * @param HelperSet ...$groups
+	 * @param HelperSet ...$helpers
 	 */
-	function addHelperSets( HelperSet ...$groups )
+	function addHelperSets( HelperSet ...$helpers )
 	{
-		$default = $this->getHelperSet();
-
-		foreach( $groups as $helpers ) {
-			foreach( $helpers as $alias => $helper ) {
-				$default->set( $helper, $alias );
-			}
+		foreach( $helpers as $helper ) {
+			$this->addHelpers( ...iterator_to_array( $helper ));
 		}
 	}
 
@@ -55,7 +58,9 @@ class Application extends Symfony\Application
 	 */
 	function renderThrowable( Throwable $throwable, OutputInterface $output ) : void
 	{
-		$this->logger->log( $throwable, 'console');
+		if( $this->logger ) {
+			$this->logger->log( $throwable, $this->level );
+		}
 
 		parent::renderThrowable( $throwable, $output );
 	}
