@@ -2,12 +2,9 @@
 
 namespace Kucbel\Console\Commands;
 
-use Nette\NotImplementedException;
 use Symfony;
 use Symfony\Component\Console\Input\InputArgument;
-use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\OutputInterface;
 
 abstract class Command extends Symfony\Component\Console\Command\Command
 {
@@ -32,16 +29,6 @@ abstract class Command extends Symfony\Component\Console\Command\Command
 	function __construct()
 	{
 		parent::__construct();
-	}
-
-	/**
-	 * @param InputInterface $input
-	 * @param OutputInterface $output
-	 * @return int
-	 */
-	protected function execute( InputInterface $input, OutputInterface $output ) : int
-	{
-		throw new NotImplementedException;
 	}
 
 	/**
