@@ -142,16 +142,21 @@ class CommandFactory implements CommandLoaderInterface
 				throw new InvalidStateException("Command {$reject} doesn't have a name.");
 			}
 
-			if( isset( $services[ $origin ] )) {
-				$reject = [
-					get_class( $service ),
-					get_class( $this->container->getService( $services[ $origin ] )),
-				];
+			$origins = $service->getAliases();
+			$origins[] = $origin;
 
-				throw new InvalidStateException("Commands {$reject[0]} and {$reject[1]} have the same name.");
+			foreach( $origins as $origin ) {
+				if( isset( $services[ $origin ] )) {
+					$reject = [
+						get_class( $service ),
+						get_class( $this->container->getService( $services[ $origin ] )),
+					];
+
+					throw new InvalidStateException("Commands {$reject[0]} and {$reject[1]} have the same name.");
+				}
+
+				$services[ $origin ] = $command;
 			}
-
-			$services[ $origin ] = $command;
 		}
 
 		return $services;

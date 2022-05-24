@@ -48,7 +48,7 @@ class ConsoleExtension extends CompilerExtension
 		$test = [];
 		$test['address'] = [ Validators::class, 'isUrl'];
 		$test['alias'] = function( string $value ) use( $quote ) {
-			return class_exists( $value ) or Strings::match( $value, "~^([{$quote}]).+\\1[a-z]*$~i");
+			return class_exists( $value ) or Strings::match( $value, "~^([{$quote}]).+\\1[a-zA-Z]*$~D");
 		};
 
 		if( InstalledVersions::isInstalled('kucbel/console')) {
@@ -81,11 +81,13 @@ class ConsoleExtension extends CompilerExtension
 			]),
 
 			'search' => Expect::listOf(
-				Expect::string()->assert('is_dir', "Command search folder must exist."))->before( $cast['array'] ),
+				Expect::string()->assert('is_dir', "Command search folder must exist.")
+			)->before( $cast['array'] ),
 
 			'alias' => Expect::arrayOf(
 				Expect::listOf( Expect::string()->assert( $test['alias'], 'Command alias must be either class or regex.'))->before( $cast['array'] ),
-				Expect::string() ),
+				Expect::string()
+			),
 		]);
 	}
 
