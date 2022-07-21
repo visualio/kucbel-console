@@ -40,29 +40,29 @@ class ConsoleExtension extends CompilerExtension
 	{
 		$quote = preg_quote('`~!@%&;/', '~');
 
-		$cast = [];
-		$cast['array'] = function( $value ) {
+		$format = [];
+		$format['array'] = function( $value ) {
 			return is_scalar( $value ) ? [ $value ] : $value;
 		};
 
-		$test = [];
-		$test['address'] = [ Validators::class, 'isUrl'];
-		$test['alias'] = function( string $value ) use( $quote ) {
+		$assert = [];
+		$assert['address'] = [ Validators::class, 'isUrl'];
+		$assert['alias'] = function( string $value ) use( $quote ) {
 			return class_exists( $value ) or Strings::match( $value, "~^([{$quote}]).+\\1[a-zA-Z]*$~D");
 		};
 
 		if( InstalledVersions::isInstalled('kucbel/console')) {
-			$found = InstalledVersions::getVersion('kucbel/console');
+			$version = InstalledVersions::getVersion('kucbel/console');
 		} else {
-			$found = null;
+			$version = null;
 		}
 
 		return Expect::structure([
 			'application' => Expect::structure([
 				'name'		=> Expect::string('C.P.A.M. - Console Peasant Assistance Module'),
-				'version'	=> Expect::string( $found ?? 'UNKNOWN'),
+				'version'	=> Expect::string( $version ?? 'UNKNOWN'),
 				'alias'		=> Expect::string('console')->nullable(),
-				'logger'	=> Expect::anyOf( Expect::string(), Expect::bool() )->default( true ),
+				'logger'	=> Expect::anyOf( Expect::string(), Expect::bool() )->default( false ),
 				'catch'		=> Expect::bool( true ),
 				'exit'		=> Expect::bool( true ),
 			]),
@@ -73,7 +73,7 @@ class ConsoleExtension extends CompilerExtension
 			]),
 
 			'request' => Expect::structure([
-				'address'	=> Expect::string('http://localhost')->assert( $test['address'], "Request address must be a valid url."),
+				'address'	=> Expect::string('http://localhost')->assert( $assert['address'], "Request address must be a valid url."),
 				'script'	=> Expect::string()->nullable(),
 				'method'	=> Expect::string()->nullable(),
 				'remote'	=> Expect::string('127.0.0.1')->nullable(),
@@ -82,10 +82,10 @@ class ConsoleExtension extends CompilerExtension
 
 			'search' => Expect::listOf(
 				Expect::string()->assert('is_dir', "Command search folder must exist.")
-			)->before( $cast['array'] ),
+			)->before( $format['array'] ),
 
 			'alias' => Expect::arrayOf(
-				Expect::listOf( Expect::string()->assert( $test['alias'], 'Command alias must be either class or regex.'))->before( $cast['array'] ),
+				Expect::listOf( Expect::string()->assert( $assert['alias'], 'Command alias must be either class or regex.'))->before( $format['array'] ),
 				Expect::string()
 			),
 		]);
