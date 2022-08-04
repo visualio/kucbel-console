@@ -2,6 +2,11 @@
 
 namespace Kucbel\Console\Format;
 
+/**
+ * Trait FormatMethod
+ *
+ * @deprecated switch to StampOutput
+ */
 trait FormatMethod
 {
 	/**
